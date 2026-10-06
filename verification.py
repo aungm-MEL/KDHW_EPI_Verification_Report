@@ -1968,35 +1968,20 @@ def main() -> None:
     st.metric("PW rows with unlogical Td records", pw_summary["unlogical_rows"])
     st.info(f"PW rows with issues: {pw_summary['affected_rows']}")
 
-    include_full_download = st.checkbox(
-        "Also prepare full verification download (uses more memory)",
-        value=False,
-    )
-
     try:
         with st.spinner("Preparing the clean verification workbook for download..."):
             filtered_report_bytes = None
-            report_bytes = None
             is_unfiltered_selection = selected_year_option == "All" and selected_period_option == "All"
 
-            try:
-                if is_unfiltered_selection:
-                    filtered_report_bytes = workbook_to_bytes(report_workbook)
-                else:
-                    filtered_workbook = build_filtered_verification_workbook(report_workbook, selected_year_option, selected_period_option)
-                    try:
-                        filtered_report_bytes = workbook_to_bytes(filtered_workbook)
-                    finally:
-                        del filtered_workbook
-                        gc.collect()
-            finally:
-                pass
-
-            if include_full_download:
-                if is_unfiltered_selection:
-                    report_bytes = filtered_report_bytes
-                else:
-                    report_bytes = workbook_to_bytes(report_workbook)
+            if is_unfiltered_selection:
+                filtered_report_bytes = workbook_to_bytes(report_workbook)
+            else:
+                filtered_workbook = build_filtered_verification_workbook(report_workbook, selected_year_option, selected_period_option)
+                try:
+                    filtered_report_bytes = workbook_to_bytes(filtered_workbook)
+                finally:
+                    del filtered_workbook
+                    gc.collect()
 
             del report_workbook
             gc.collect()
@@ -2012,31 +1997,18 @@ def main() -> None:
             st.code(traceback.format_exc())
         return
 
-    if filtered_report_bytes is None and report_bytes is None:
-        st.error("The workbook was checked successfully, but neither download file could be prepared.")
+    if filtered_report_bytes is None:
+        st.error("The workbook was checked successfully, but the download file could not be prepared.")
         return
 
     year_text = str(selected_year_option) if selected_year_option != "All" else "all_years"
     period_text = normalize_code(selected_period_option) if selected_period_option != "All" else "all_periods"
-    if filtered_report_bytes is not None:
-        st.download_button(
-            label="Download filtered verification file",
-            data=filtered_report_bytes,
-            file_name=f"KDHW_verification_{year_text}_{period_text}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-    else:
-        st.warning("Filtered download could not be prepared, but the full verification file is still available.")
-
-    if report_bytes is not None:
-        st.download_button(
-            label="Download full verification file",
-            data=report_bytes,
-            file_name="KDHW_verification.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-    else:
-        st.warning("Full download could not be prepared, but the filtered verification file is still available.")
+    st.download_button(
+        label="Download filtered verification file",
+        data=filtered_report_bytes,
+        file_name=f"KDHW_verification_{year_text}_{period_text}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
     st.subheader("Rules applied")
     st.write("Missing children_code values are flagged red.")
